@@ -1,0 +1,42 @@
+# ============================================================
+# Qwen3-8B SFT Fine-Tuning — Berlin TV Tower
+# H100 (RunPod) | CUDA 12.8 | Python 3.11+
+# Install order matters — torch must be installed first
+# ============================================================
+
+# ------------------------------------------------------------
+# 1. PyTorch — install this first with the correct index URL
+#    pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 \
+#      --index-url https://download.pytorch.org/whl/cu128
+#    DO NOT install torchvision — it will upgrade torch
+# ------------------------------------------------------------
+
+# ------------------------------------------------------------
+# 2. Core training stack
+# ------------------------------------------------------------
+unsloth
+unsloth_zoo
+transformers>=4.51.0        # Qwen3 requires >= 4.51.0
+trl>=0.12.0
+peft>=0.14.0
+accelerate>=1.0.0
+datasets>=3.0.0
+tokenizers>=0.21.0
+
+# ------------------------------------------------------------
+# 3. Quantization + precision
+# ------------------------------------------------------------
+bitsandbytes>=0.45.0        # Required for 4-bit loading (optional if using full BF16)
+
+# ------------------------------------------------------------
+# 4. Serialization / tokenizer utilities
+# ------------------------------------------------------------
+sentencepiece
+protobuf
+
+# ------------------------------------------------------------
+# 5. Utilities
+# ------------------------------------------------------------
+huggingface_hub>=0.27.0     # Model + dataset downloads
+packaging
+einops                      # Required by some Unsloth internals
