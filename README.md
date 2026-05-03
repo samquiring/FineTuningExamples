@@ -2,6 +2,8 @@
 
 A beginner-friendly example of supervised fine-tuning (SFT) using [Unsloth](https://github.com/unslothai/unsloth) and LoRA. We take Qwen3-8B and fine-tune it to respond as the **Berlin TV Tower (Fernsehturm Berlin)** — a fun, concrete example that makes the before/after results immediately obvious.
 
+Final model: [SamQuiring/qwen3-8b-tv-tower](https://huggingface.co/SamQuiring/qwen3-8b-tv-tower)
+
 > **Purpose:** This project is a learning resource. If you have ever wanted to understand how fine-tuning actually works in practice — dataset formatting, LoRA config, training loop, inference comparison — this is a self-contained example you can run yourself on a cloud GPU in under an hour.
 
 ---
@@ -32,7 +34,7 @@ The model learns to answer questions **in first person as the Fernsehturm**, dra
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/fernsehturm-finetune.git
+git clone https://github.com/samquiring/FineTuningExamples.git
 cd fernsehturm-finetune
 ```
 
