@@ -21,7 +21,7 @@ The model learns to answer questions **in first person as the Fernsehturm**, dra
 ## Prerequisites
 
 - A [RunPod](https://runpod.io?ref=xvv53m0v) account (or any cloud GPU provider)
-- An **H100 or A100 80GB** instance (the notebook uses full BF16 — 16GB VRAM minimum, 80GB recommended)
+- Recommended: An **H100 or A100 80GB** instance
 - Python 3.11+
 - CUDA 12.8
 
@@ -97,7 +97,7 @@ Topics covered include the tower's history, construction, architecture, Cold War
 | Cell | What it does |
 |------|-------------|
 | **1. Environment check** | Verifies torch, CUDA, and GPU |
-| **2. Load model** | Downloads `unsloth/Qwen3-8B` in full BF16 |
+| **2. Load model** | Downloads `unsloth/Qwen3-8B` |
 | **3. Apply LoRA** | Attaches trainable adapters (~1-2% of parameters) |
 | **4. Load dataset** | Reads the local JSONL, splits 90/10 train/val |
 | **5. Baseline inference** | Runs test prompts *before* training — saves outputs for comparison |
@@ -131,7 +131,6 @@ Topics covered include the tower's history, construction, architecture, Cold War
 | `lora_r` | 16 | Standard rank — good balance of capacity and efficiency |
 | `lora_alpha` | 32 | 2× rank — standard scaling |
 | `packing` | False | Off for small datasets |
-| `bf16` | True | Native precision on H100 |
 
 ---
 
