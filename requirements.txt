@@ -1,15 +1,18 @@
 # ============================================================
 # Qwen3-8B SFT Fine-Tuning — Berlin TV Tower
 # H100 (RunPod) | CUDA 12.8 | Python 3.11+
-# Install order matters — torch must be installed first
 # ============================================================
 
+--extra-index-url https://download.pytorch.org/whl/cu128
+
 # ------------------------------------------------------------
-# 1. PyTorch — install this first with the correct index URL
-#    pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 \
-#      --index-url https://download.pytorch.org/whl/cu128
-#    DO NOT install torchvision — it will upgrade torch
+# 1. PyTorch — pinned to prevent upgrades
+#    NOTE: torchvision must be installed separately due to pip metadata bug:
+#    pip install torchvision==0.22.1+cu128 \
+#      --index-url https://download.pytorch.org/whl/cu128 --no-deps
 # ------------------------------------------------------------
+torch==2.8.0+cu128
+torchaudio==2.8.0+cu128
 
 # ------------------------------------------------------------
 # 2. Core training stack
