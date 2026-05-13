@@ -32,6 +32,25 @@ The model learns to answer questions **in first person as the Fernsehturm**, dra
 
 ---
 
+## Repository Structure
+
+```
+FineTuningExamples/
+├── sft/
+│   └── qwen3_sft_finetuning.ipynb           # Part 1: SFT training notebook
+├── berlin_tv_tower_training.jsonl           # SFT dataset (245 examples)
+│
+├── dpo/
+│   ├── generate_dpo_rejections.ipynb        # Part 2a: generate DPO pairs with Claude judge
+│   └── qwen3_dpo_finetuning.ipynb           # Part 2b: DPO training notebook
+├── berlin_tv_tower_dpo_prompts.jsonl        # 184 prompts for DPO data generation
+│
+├── requirements.txt                         # Python dependencies
+└── README.md                                # This file
+```
+
+---
+
 ## Quickstart
 
 ### 1. Clone the repository
@@ -40,7 +59,6 @@ The model learns to answer questions **in first person as the Fernsehturm**, dra
 git clone https://github.com/samquiring/FineTuningExamples.git
 cd FineTuningExamples
 ```
-```
 
 ### 2. Install dependencies
 
@@ -48,35 +66,31 @@ cd FineTuningExamples
 pip install -r requirements.txt
 ```
 
-### 3. Launch Jupyter and open the notebook
+### 3. Run Part 1 — SFT
 
 ```bash
 jupyter notebook sft/qwen3_sft_finetuning.ipynb
 ```
 
-Then run the cells top to bottom.
+### 4. Run Part 2 — DPO (optional)
+
+If you want to generate your own DPO data using Claude as a judge:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+pip install anthropic
+
+jupyter notebook dpo/generate_dpo_rejections.ipynb   # generates berlin_tv_tower_dpo.jsonl
+jupyter notebook dpo/qwen3_dpo_finetuning.ipynb
+```
+
+Or skip the generation step and bring your own preference dataset — see [Part 2 — DPO Fine-Tuning](#part-2--dpo-fine-tuning) below.
 
 ---
 
-## Repository Structure
+## Part 1 — SFT Fine-Tuning
 
-```
-FineTuningExamples/
-├── qwen3_sft_finetuning.ipynb           # Part 1: SFT training notebook
-├── berlin_tv_tower_training.jsonl       # SFT dataset (245 examples)
-│
-├── dpo/
-│   ├── generate_dpo_rejections.ipynb    # Part 2a: generate DPO pairs with Claude judge
-│   └── qwen3_dpo_finetuning.ipynb       # Part 2b: DPO training notebook
-├── berlin_tv_tower_dpo_prompts.jsonl    # 184 prompts for DPO data generation
-│
-├── requirements.txt                     # Python dependencies
-└── README.md                            # This file
-```
-
----
-
-## The Dataset
+### The Dataset
 
 `berlin_tv_tower_training.jsonl` contains 245 hand-crafted question-answer pairs. Each line is a JSON object in the standard messages format:
 
@@ -91,9 +105,7 @@ FineTuningExamples/
 
 Topics covered include the tower's history, construction, architecture, Cold War significance, visitor experience, and philosophical musings. The dataset deliberately repeats identity questions ("Who are you?", "What is your name?") in many phrasings to make the persona stick reliably.
 
----
-
-## What the Notebook Covers
+### What the Notebook Covers
 
 | Cell | What it does |
 |------|-------------|
@@ -109,9 +121,7 @@ Topics covered include the tower's history, construction, architecture, Cold War
 | **10. Export (optional)** | Merge weights or export to GGUF for Ollama |
 | **11. VRAM summary** | Shows memory usage breakdown |
 
----
-
-## Key Concepts Demonstrated
+### Key Concepts Demonstrated
 
 **LoRA (Low-Rank Adaptation)** — instead of updating all 8 billion parameters, we attach small adapter matrices to specific layers. This makes fine-tuning fast, cheap, and reversible. The base model weights are never modified.
 
@@ -121,9 +131,7 @@ Topics covered include the tower's history, construction, architecture, Cold War
 
 **Before/after comparison** — the notebook deliberately captures baseline outputs before training so you can see the exact behavior change. This is the most satisfying part.
 
----
-
-## Training Configuration
+### Training Configuration
 
 | Parameter | Value | Why |
 |-----------|-------|-----|
@@ -133,9 +141,7 @@ Topics covered include the tower's history, construction, architecture, Cold War
 | `lora_alpha` | 32 | 2× rank — standard scaling |
 | `packing` | False | Off for small datasets |
 
----
-
-## Expected Results
+### Expected Results
 
 After training, the model should respond to identity questions in first person as the Fernsehturm:
 
@@ -145,8 +151,6 @@ Before:  The Berlin TV Tower (Fernsehturm Berlin) is a television tower...
 After:   I am the Berlin TV Tower — the Fernsehturm Berlin. I stand 368 meters
          tall at Alexanderplatz and have been watching over this city since 1969.
 ```
-
----
 
 ---
 
@@ -170,18 +174,17 @@ This runs the full pipeline: generate candidates from the SFT model, call Claude
 export ANTHROPIC_API_KEY=sk-ant-...
 pip install anthropic
 
-cd dpo
-jupyter notebook generate_dpo_rejections.ipynb
-# generates berlin_tv_tower_dpo.jsonl
+jupyter notebook dpo/generate_dpo_rejections.ipynb
+# saves berlin_tv_tower_dpo.jsonl
 
-jupyter notebook qwen3_dpo_finetuning.ipynb
+jupyter notebook dpo/qwen3_dpo_finetuning.ipynb
 ```
 
-`berlin_tv_tower_dpo_prompts.jsonl` (184 prompts) is included in the repo as the prompt source. These are intentionally different from the SFT training questions — focused on historical depth, specific events, engineering, and nuanced emotional scenarios that create real quality variance between two responses.
+`berlin_tv_tower_dpo_prompts.jsonl` (184 prompts) is included in the repo as the prompt source. These are intentionally different from the SFT training questions — focused on historical depth, specific events, engineering, and nuanced emotional scenarios that create real quality variance between two model responses.
 
 ### Option B — Skip straight to training
 
-If you want to run DPO without calling the Claude API, you can generate the rejection dataset yourself using any method (another model, human annotation, or the SFT model at high temperature without a judge), format it as:
+If you want to run DPO without calling the Claude API, generate the preference dataset yourself using any method (another model, human annotation, or the SFT model at high temperature without a judge), format it as:
 
 ```json
 {
@@ -221,26 +224,23 @@ Then open `dpo/qwen3_dpo_finetuning.ipynb` and point `DPO_DATASET_PATH` at your 
 
 ## Adapting This to Your Own Project
 
-This example is intentionally simple so it is easy to repurpose. To fine-tune on your own persona or task:
+This example is intentionally simple so it is easy to repurpose.
 
-1. Replace `berlin_tv_tower_extended_training.jsonl` with your own JSONL file in the same messages format
-2. Update `TEST_PROMPTS` in cell 5 to match your use case
-3. Adjust `num_train_epochs` based on dataset size — more examples needs fewer epochs, fewer examples needs more
-4. Change `SAVE_PATH` to something meaningful for your project
+**For SFT:** replace `berlin_tv_tower_training.jsonl` with your own JSONL file in the same messages format, update `TEST_PROMPTS`, adjust `num_train_epochs` based on dataset size, and update `SAVE_PATH`.
 
-The rest of the notebook stays the same.
+**For DPO:** replace `berlin_tv_tower_dpo_prompts.jsonl` with your own prompts, run the generation notebook to produce preference pairs via the Claude judge, then train as normal.
 
 ---
 
 ## Troubleshooting
 
-**`DatasetNotFoundError`** — make sure `berlin_tv_tower_extended_training.jsonl` is in the same directory as the notebook.
+**`DatasetNotFoundError`** — make sure `berlin_tv_tower_training.jsonl` is in the repo root, and that the DPO notebooks reference paths relative to where Jupyter is launched.
 
 **`RuntimeError: No config file found`** — the model name is wrong. Use `unsloth/Qwen3-8B` exactly.
 
-**torch gets downgraded** — you installed `torchvision` or ran `pip install -r requirements.txt` before the torch step. Re-run the pinned torch install from step 2.
+**Out of memory (SFT)** — switch to `load_in_4bit=True` and `MODEL_NAME = "unsloth/Qwen3-8B-bnb-4bit"` in cell 2.
 
-**Out of memory** — switch to `load_in_4bit=True` and `MODEL_NAME = "unsloth/Qwen3-8B-bnb-4bit"` in cell 2. This reduces VRAM usage significantly at a small quality cost.
+**Out of memory (DPO)** — the DPO training notebook loads two full model instances (~32 GB total). If you're on a smaller GPU, switch both to 4-bit loading.
 
 **Attention mask warning** — harmless, already handled in the inference function via `return_dict=True` and explicit `attention_mask` passing.
 
