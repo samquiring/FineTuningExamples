@@ -35,7 +35,7 @@ The model learns to answer questions **in first person as the Fernsehturm**, dra
 
 ```bash
 git clone https://github.com/samquiring/FineTuningExamples.git
-cd fernsehturm-finetune
+cd FineTuningExamples
 ```
 
 ### 2. Install PyTorch first (pinned to CUDA 12.8)
