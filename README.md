@@ -1,8 +1,11 @@
 # 🗼 Fine-Tuning Qwen3-8B — Berlin TV Tower Persona
 
-A beginner-friendly example of supervised fine-tuning (SFT) using [Unsloth](https://github.com/unslothai/unsloth) and LoRA. We take Qwen3-8B and fine-tune it to respond as the **Berlin TV Tower (Fernsehturm Berlin)** — a fun, concrete example that makes the before/after results immediately obvious.
+A beginner-friendly two-part series on fine-tuning using [Unsloth](https://github.com/unslothai/unsloth) and LoRA. We take Qwen3-8B and fine-tune it to respond as the **Berlin TV Tower (Fernsehturm Berlin)** — a fun, concrete example that makes the before/after results immediately obvious.
 
-Final model: [SamQuiring/qwen3-8b-tv-tower](https://huggingface.co/SamQuiring/qwen3-8b-tv-tower)
+- **Part 1 — SFT:** Teach the model the persona from scratch using supervised fine-tuning
+- **Part 2 — DPO:** Refine response quality using Direct Preference Optimization
+
+SFT model: [SamQuiring/qwen3-8b-tv-tower](https://huggingface.co/SamQuiring/qwen3-8b-tv-tower)
 
 > **Purpose:** This project is a learning resource. If you have ever wanted to understand how fine-tuning actually works in practice — dataset formatting, LoRA config, training loop, inference comparison — this is a self-contained example you can run yourself on a cloud GPU in under an hour.
 
@@ -37,26 +40,18 @@ The model learns to answer questions **in first person as the Fernsehturm**, dra
 git clone https://github.com/samquiring/FineTuningExamples.git
 cd FineTuningExamples
 ```
-
-### 2. Install PyTorch first (pinned to CUDA 12.8)
-
-> ⚠️ This step must happen **before** `pip install -r requirements.txt`. If you let pip resolve torch on its own it will pull the wrong CUDA version.
-
-```bash
-pip install torch==2.8.0+cu128 torchaudio==2.8.0+cu128 \
-  --index-url https://download.pytorch.org/whl/cu128
 ```
 
-### 3. Install the rest of the dependencies
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Launch Jupyter and open the notebook
+### 3. Launch Jupyter and open the notebook
 
 ```bash
-jupyter notebook qwen3_sft_finetuning.ipynb
+jupyter notebook sft/qwen3_sft_finetuning.ipynb
 ```
 
 Then run the cells top to bottom.
@@ -66,11 +61,17 @@ Then run the cells top to bottom.
 ## Repository Structure
 
 ```
-fernsehturm-finetune/
-├── qwen3_sft_finetuning.ipynb              # Main training notebook
-├── berlin_tv_tower_training.jsonl # Training dataset (245 examples)
-├── requirements.txt                        # Python dependencies
-└── README.md                               # This file
+FineTuningExamples/
+├── qwen3_sft_finetuning.ipynb           # Part 1: SFT training notebook
+├── berlin_tv_tower_training.jsonl       # SFT dataset (245 examples)
+│
+├── dpo/
+│   ├── generate_dpo_rejections.ipynb    # Part 2a: generate DPO pairs with Claude judge
+│   └── qwen3_dpo_finetuning.ipynb       # Part 2b: DPO training notebook
+├── berlin_tv_tower_dpo_prompts.jsonl    # 184 prompts for DPO data generation
+│
+├── requirements.txt                     # Python dependencies
+└── README.md                            # This file
 ```
 
 ---
@@ -144,6 +145,77 @@ Before:  The Berlin TV Tower (Fernsehturm Berlin) is a television tower...
 After:   I am the Berlin TV Tower — the Fernsehturm Berlin. I stand 368 meters
          tall at Alexanderplatz and have been watching over this city since 1969.
 ```
+
+---
+
+---
+
+## Part 2 — DPO Fine-Tuning
+
+After SFT, the model reliably speaks as the Berlin TV Tower. DPO (Direct Preference Optimization) takes the next step: improving *quality within the persona* — sharper facts, better tone, more consistent character — by training on preference pairs rather than demonstrations.
+
+### How it works
+
+For each prompt, we generate two candidate responses from the SFT model, then use Claude as a judge to pick which is better. The winner becomes `chosen`, the loser `rejected`. DPO trains the model to assign higher likelihood to the preferred response relative to a frozen reference copy of itself.
+
+This is meaningfully different from SFT: both responses already speak as the tower, so the model is learning quality distinctions, not the persona itself.
+
+### Option A — Generate your own DPO data (recommended)
+
+This runs the full pipeline: generate candidates from the SFT model, call Claude to judge them, save preference pairs, then train.
+
+**Requirements:** An `ANTHROPIC_API_KEY` with access to `claude-sonnet-4-6`.
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+pip install anthropic
+
+cd dpo
+jupyter notebook generate_dpo_rejections.ipynb
+# generates berlin_tv_tower_dpo.jsonl
+
+jupyter notebook qwen3_dpo_finetuning.ipynb
+```
+
+`berlin_tv_tower_dpo_prompts.jsonl` (184 prompts) is included in the repo as the prompt source. These are intentionally different from the SFT training questions — focused on historical depth, specific events, engineering, and nuanced emotional scenarios that create real quality variance between two responses.
+
+### Option B — Skip straight to training
+
+If you want to run DPO without calling the Claude API, you can generate the rejection dataset yourself using any method (another model, human annotation, or the SFT model at high temperature without a judge), format it as:
+
+```json
+{
+  "prompt":   [{"role": "user",      "content": "..."}],
+  "chosen":   [{"role": "assistant", "content": "..."}],
+  "rejected": [{"role": "assistant", "content": "..."}]
+}
+```
+
+Then open `dpo/qwen3_dpo_finetuning.ipynb` and point `DPO_DATASET_PATH` at your file.
+
+### What the DPO notebooks cover
+
+| Notebook | What it does |
+|---|---|
+| `generate_dpo_rejections.ipynb` | Loads SFT model → generates 2 candidates per prompt → calls Claude judge → saves `berlin_tv_tower_dpo.jsonl` |
+| `qwen3_dpo_finetuning.ipynb` | Loads SFT model as policy + frozen reference → trains DPOTrainer → before/after inference → reward margin check |
+
+### Key DPO concepts demonstrated
+
+**Why both candidates come from the SFT model** — In real DPO, chosen and rejected must be plausible outputs from the policy's own distribution. Using a base model for rejections just re-teaches what SFT already learned. Using SFT model outputs means DPO is doing genuine preference refinement.
+
+**Why we load the reference model explicitly** — `ref_model=None` with stacked PEFT adapters is ambiguous; TRL's `disable_adapter()` behavior is not guaranteed when adapters are nested. We load a second independent instance of the SFT checkpoint to make the reference unambiguous.
+
+**Beta (0.1)** — The KL penalty weight. Low beta lets the policy move farther from the reference; high beta keeps it conservative. 0.1 is a standard starting point for preference refinement on top of a well-trained SFT model.
+
+### DPO training configuration
+
+| Parameter | Value | Why |
+|---|---|---|
+| `beta` | 0.1 | Standard KL penalty — conservative drift from SFT reference |
+| `learning_rate` | 5e-5 | Lower than SFT (1e-4); preference tuning is a smaller update |
+| `lora_r` | 8 | Smaller than SFT (16); DPO is fine-grained, not a full rewrite |
+| `num_train_epochs` | 3 | DPO overfits faster than SFT on small datasets |
 
 ---
 
